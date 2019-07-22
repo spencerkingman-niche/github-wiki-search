@@ -13,3 +13,9 @@ A tool for searching the Github Wikis via CLI or a slackbot.
     1. I am using ngrok to expose my local express server to Slack.
 
 I will write some documentation about how it works and some notes on the slack integration later. --SK
+
+# Reference
+I primarily used these examples:
+- https://www.codementor.io/rudolfolah/node-js-search-engine-github-s2gh0sfl8#Why-do-we-need-a-search-engine-for-Github-wikis?
+- https://girliemac.com/blog/2016/10/24/slack-command-bot-nodejs/
+- https://dashboard.ngrok.com/get-started
