@@ -86,3 +86,7 @@ typings/
 
 # DynamoDB Local files
 .dynamodb/
+
+# Nicheinc/Wiki/wiki
+.wiki/
+.wiki-data.json
