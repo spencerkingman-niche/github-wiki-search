@@ -88,8 +88,8 @@ typings/
 .dynamodb/
 
 # Nicheinc/Wiki/wiki
-.wiki/
-.wiki-data.json
+wiki/
+wiki-data.json
 
 # .DS_Store
 .DS_STore
