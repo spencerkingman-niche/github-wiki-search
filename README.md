@@ -9,5 +9,7 @@ A tool for searching the Github Wikis via CLI or a slackbot.
 1. Clone the wiki you want to search: `git clone ssh://git@github.com/nicheinc/wiki.wiki.git wiki`
 1. Index the wiki: `node indexer.js 'https://github.com/nicheinc/wiki/wiki' > wiki-data.json`
 1. Search via the CLI: `node search.js 'animations'`
+1. Run the express server: `nf start`
+    1. I am using ngrok to expose my local express server to Slack.
 
-I will provide some notes about how the slack integration works later. --SK
+I will write some documentation about how it works and some notes on the slack integration later. --SK
