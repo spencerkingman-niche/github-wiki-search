@@ -91,7 +91,7 @@ app.post('/', (req, res) => {
   for (var id in result) {
     const item = result[id];
     
-    // Trying to get information about the last edit timestamp
+    // Trying to get information about the last edit timestamp. Not working yet
     nodegit.Repository.open(wikiRepo)
       .then(function(repo) {
         nodegit.Blame.file(repo, item.title_url)
