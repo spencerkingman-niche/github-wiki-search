@@ -8,5 +8,15 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "body-parser": "^1.19.0",
+    "commonmark": "^0.29.0",
+    "express": "^4.17.1",
+    "fs": "0.0.1-security",
+    "nodegit": "^0.24.3",
+    "path": "^0.12.7",
+    "stemmer": "^1.0.4",
+    "walk": "^2.3.14"
+  }
 }
