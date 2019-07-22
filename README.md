@@ -16,6 +16,6 @@ I will write some documentation about how it works and some notes on the slack i
 
 # Reference
 I primarily used these examples:
-- https://www.codementor.io/rudolfolah/node-js-search-engine-github-s2gh0sfl8#Why-do-we-need-a-search-engine-for-Github-wikis?
+- https://www.codementor.io/rudolfolah/node-js-search-engine-github-s2gh0sfl8
 - https://girliemac.com/blog/2016/10/24/slack-command-bot-nodejs/
 - https://dashboard.ngrok.com/get-started
