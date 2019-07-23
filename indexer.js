@@ -4,7 +4,9 @@ const walk = require('walk');
 const stemmer = require('stemmer');
 const commonmark = require('commonmark');
 const crypto = require('crypto');
+const nodegit = require('nodegit');
 
+const wikiRepoPath = require("path").resolve("./wiki/.git");
 const wikiUrlPrefix = process.argv[2];
 const wikiDir = 'wiki/';
 const walker = walk.walk('wiki/');
@@ -76,7 +78,7 @@ const stopWords = [
   'neither',
   'no',
   'nor',
-  'not', 
+  'not',
   'of',
   'off',
   'often',
@@ -134,7 +136,7 @@ let index = Object.create(null);
 
 // walker walks through a directory tree and list of files;
 // used for finding all Markdown files in the wiki directory.
-walker.on('file', function(root, fileStats, next) {
+walker.on('file', async function (root, fileStats, next) {
   const fileName = fileStats.name;
   // For each file in the wiki directory, we'll know if it is a Markdown file or not by checking its extension.
   if (fileName.indexOf('.md') !== -1) {
@@ -145,41 +147,90 @@ walker.on('file', function(root, fileStats, next) {
   next();
 });
 
-walker.on('errors', function(root, nodeStatsArray, next) {
+walker.on('errors', function (root, nodeStatsArray, next) {
   next();
 });
 
-walker.on('end', function() {
+walker.on('end', function () {
   let result = [];
   for (var fileName in index) {
     for (var i = 0; i < index[fileName].length; i += 1) {
       result.push(index[fileName][i]);
     }
   }
+  console.log(result, index)
   console.log(JSON.stringify(result));
 });
+
+const getLastCommit = async (fileName) => {
+  let commits = [];
+  try {
+    const repoForNodeGit = await nodegit.Repository.open(wikiRepoPath)
+    const blame = await nodegit.Blame.file(repoForNodeGit, fileName)
+    try {
+      let count = 1;
+      for (var i = 0; i < blame.getHunkCount(); i++) {
+        var hunk = blame.getHunkByIndex(i);
+        for (var j = 0; j < hunk.linesInHunk(); j++) {
+          const commitId = hunk.finalCommitId().toString()
+          const commit = await nodegit.Commit.lookup(repoForNodeGit, commitId)
+          const commitTime = commit.timeMs()
+          commits.push({
+            author: hunk.finalSignature().toString(),
+            time: commitTime,
+            id: commitId, 
+          })
+          count++;
+        }
+      }
+    } catch (error) {
+      console.log('[ indexer.js / processFile / parsing blame hunks ]', error)
+    };
+    const latestTime = new Date(Math.max.apply(null, commits.map(commit => {
+      return new Date(commit.time);
+    })));
+    return commits.filter(commit => {
+      var date = new Date(commit.time);
+      return date.getTime() == latestTime.getTime();
+    })[0];
+  } catch (error) {
+    console.log('[ indexer.js / processFile / getting repo and blames ]', error)
+  };
+}
+
 
 // Process the file: 
 // 1. Break down the title into tags
 // 2. Break down the content
 //     a. Group it by page heading and sub-headings
 // 3. Convert the grouped content into indexed data
-function processFile(fileName, content) {
+async function processFile(fileName, content, blame) {
   let result = [];
+  
   const title = fileName.replace('.md', '');
   const tree = contentToMarkdownTree(content);
   const tags = processTitle(fileName, tree);
   const processedContent = processContent(title, tree);
+  const lastCommit = {
+    author: 'a',
+    time: 'b',
+    id: 'c',
+  }
+  // const lastCommit = getLastCommit(fileName)
+  
   for (var heading in processedContent) {
     const headingTags = breakIntoTags(heading);
     for (var i = 0; i < processedContent[heading].length; i += 1) {
       const item = processedContent[heading][i];
-      const subheadingUrl = heading.replace(/\s+/g, '-').replace(/[\/()]/g, '').toLowerCase();
       const id = generateId(title, heading, item.content);
 
       const titleUrl = `${wikiUrlPrefix}/${title.replace(' ', '-')}`;
       let headingUrlSuffix = heading.toLowerCase().replace(/[\/\(\),.]/g, '').replace(/ /g, '-');
+      
       const data = {
+        lastEditAuthor: lastCommit.author,
+        lastEditTime: lastCommit.time,
+        lastEditCommitId: lastCommit.id,
         id: id,
         title: title,
         title_url: titleUrl,
@@ -188,7 +239,6 @@ function processFile(fileName, content) {
         content: item.substring(0, 500),
         tags: tags.concat(breakIntoTags(item)).concat(headingTags)
       };
-
       result.push(data);
     }
   }
@@ -201,36 +251,12 @@ function contentToMarkdownTree(content) {
   return reader.parse(content);
 }
 
-function processTitle(fileName, tree) {
+function processTitle(fileName) {
   const cleanFileName = fileName.replace('.md', '');
   const tags = breakIntoTags(cleanFileName);
   return tags;
 }
 
-function processContent(title, tree) {
-  const walker = tree.walker();
-  let event, node, child;
-  let currentHeading = null;
-  let sections = {null: []};
-
-  while ((event = walker.next())) {
-    node = event.node;
-    if (node.type === 'heading') {
-      currentHeading = getNodeChildrenText(node);
-    } else if (node.literal) {
-      const text = node.literal.replace('\n', ' ').toLowerCase();
-      if (sections[currentHeading]) {
-        sections[currentHeading].push(text);
-      } else {
-        sections[currentHeading] = [text];
-      }
-    }
-  }
-
-  sections[title] = sections[null];
-  delete sections[null];
-  return sections;
-}
 
 function breakIntoTags(text) {
   let clean = text.replace(/[^a-zA-Z]/g, ' ');
@@ -258,6 +284,34 @@ function shouldIgnoreWord(text) {
   return text.length === 1 || stopWords.indexOf(text) !== -1;
 }
 
+
+function processContent(title, tree) {
+  const walker = tree.walker();
+  let event, node;
+  let currentHeading = null;
+  let sections = {
+    null: []
+  };
+
+  while ((event = walker.next())) {
+    node = event.node;
+    if (node.type === 'heading') {
+      currentHeading = getNodeChildrenText(node);
+    } else if (node.literal) {
+      const text = node.literal.replace('\n', ' ').toLowerCase();
+      if (sections[currentHeading]) {
+        sections[currentHeading].push(text);
+      } else {
+        sections[currentHeading] = [text];
+      }
+    }
+  }
+  
+  sections[title] = sections[null];
+  delete sections[null];
+  return sections;
+}
+
 function generateId() {
   const hash = crypto.createHash('sha256');
   hash.update.apply(hash, arguments);
@@ -268,10 +322,9 @@ function getNodeChildrenText(node) {
   let text = '';
   child = node.firstChild;
   if (child && child.literal) {
-  do {
+    do {
       text += child.literal;
     } while ((child = child.next));
   }
   return text;
 }
-
