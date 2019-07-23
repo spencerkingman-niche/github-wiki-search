@@ -2,9 +2,6 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const wikiData = require('./wiki-data.json');
-const nodegit = require('nodegit');
-const wikiRepo = require("path").resolve("./wiki/.git");
-console.log(wikiRepo)
 
 const app = express();
 app.use(bodyParser.json());
@@ -47,6 +44,7 @@ function _formatHeading(text) {
 app.post('/', (req, res) => {
   // let text = req.body.text;
   const query = req.body.text.replace('-', '').toLowerCase();
+  console.log('query:', query)
 
   // If the user has typed `/wiki help`
   if (query === 'help' || query === '') {
@@ -90,36 +88,6 @@ app.post('/', (req, res) => {
   // prepare text ouput of response
   for (var id in result) {
     const item = result[id];
-    
-    // Trying to get information about the last edit timestamp. Not working yet
-    nodegit.Repository.open(wikiRepo)
-      .then(function(repo) {
-        nodegit.Blame.file(repo, item.title_url)
-          .then((b) => {
-            console.log('here 1')
-      //       var count = 1;
-      //       for (var i = 0; i < blame.getHunkCount(); i++) {
-      //         var hunk = blame.getHunkByIndex(i);
-      //         for (var j = 0; j < hunk.linesInHunk(); j++) {
-      //           console.log(count + ":" + hunk.finalCommitId().toString().substring(0, 8));
-      //           count++;
-      //         }
-      //       }
-          }
-        );
-        }
-      )
-      .catch(function(error) {
-        console.log(error)
-      }
-    );
-    
-    // const blam = nodegit.Blame.file('https://github.com/nicheinc/wiki.wiki.git', item.title_url).then(function() {
-    //   console.log('SUCCESS')
-    // })
-    // console.log(blam)
-    // (item.title_url.substring(38))
-
     resultText += '-----------------------------------------\n\n';
     resultText += _highlightQuery(query, _formatHeading(`${item.title} - ${item.heading}`)) + '\n';
     resultText += `${item.heading_url}\n\n`;
