@@ -133,6 +133,7 @@ const stopWords = [
 ]
 
 let index = Object.create(null);
+fileCount = 0
 
 // walker walks through a directory tree and list of files;
 // used for finding all Markdown files in the wiki directory.
@@ -142,7 +143,7 @@ walker.on('file', async function (root, fileStats, next) {
   if (fileName.indexOf('.md') !== -1) {
     const pathName = path.join(wikiDir, fileName);
     const content = fs.readFileSync(pathName).toString();
-    index[fileName] = processFile(fileName, content);
+    index[fileName] = await processFile(fileName, content);
   }
   next();
 });
@@ -158,7 +159,6 @@ walker.on('end', function () {
       result.push(index[fileName][i]);
     }
   }
-  console.log(result, index)
   console.log(JSON.stringify(result));
 });
 
@@ -178,7 +178,7 @@ const getLastCommit = async (fileName) => {
           commits.push({
             author: hunk.finalSignature().toString(),
             time: commitTime,
-            id: commitId, 
+            id: commitId,
           })
           count++;
         }
@@ -206,18 +206,13 @@ const getLastCommit = async (fileName) => {
 // 3. Convert the grouped content into indexed data
 async function processFile(fileName, content, blame) {
   let result = [];
-  
+
   const title = fileName.replace('.md', '');
   const tree = contentToMarkdownTree(content);
   const tags = processTitle(fileName, tree);
   const processedContent = processContent(title, tree);
-  const lastCommit = {
-    author: 'a',
-    time: 'b',
-    id: 'c',
-  }
-  // const lastCommit = getLastCommit(fileName)
-  
+  const lastCommit = await getLastCommit(fileName)
+
   for (var heading in processedContent) {
     const headingTags = breakIntoTags(heading);
     for (var i = 0; i < processedContent[heading].length; i += 1) {
@@ -226,11 +221,11 @@ async function processFile(fileName, content, blame) {
 
       const titleUrl = `${wikiUrlPrefix}/${title.replace(' ', '-')}`;
       let headingUrlSuffix = heading.toLowerCase().replace(/[\/\(\),.]/g, '').replace(/ /g, '-');
-      
+
       const data = {
-        lastEditAuthor: lastCommit.author,
-        lastEditTime: lastCommit.time,
-        lastEditCommitId: lastCommit.id,
+        last_author: lastCommit.author,
+        last_modified: lastCommit.time,
+        last_commit: lastCommit.id,
         id: id,
         title: title,
         title_url: titleUrl,
@@ -256,7 +251,6 @@ function processTitle(fileName) {
   const tags = breakIntoTags(cleanFileName);
   return tags;
 }
-
 
 function breakIntoTags(text) {
   let clean = text.replace(/[^a-zA-Z]/g, ' ');
@@ -284,7 +278,6 @@ function shouldIgnoreWord(text) {
   return text.length === 1 || stopWords.indexOf(text) !== -1;
 }
 
-
 function processContent(title, tree) {
   const walker = tree.walker();
   let event, node;
@@ -306,7 +299,7 @@ function processContent(title, tree) {
       }
     }
   }
-  
+
   sections[title] = sections[null];
   delete sections[null];
   return sections;
