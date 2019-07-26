@@ -133,7 +133,7 @@ const stopWords = [
 ]
 
 let index = Object.create(null);
-fileCount = 0
+let repoForNodeGit
 
 // walker walks through a directory tree and list of files;
 // used for finding all Markdown files in the wiki directory.
@@ -165,7 +165,10 @@ walker.on('end', function () {
 const getLastCommit = async (fileName) => {
   let commits = [];
   try {
-    const repoForNodeGit = await nodegit.Repository.open(wikiRepoPath)
+    if (!repoForNodeGit) {
+      // Only do this once.
+      repoForNodeGit = await nodegit.Repository.open(wikiRepoPath)
+    }
     const blame = await nodegit.Blame.file(repoForNodeGit, fileName)
     try {
       let count = 1;
