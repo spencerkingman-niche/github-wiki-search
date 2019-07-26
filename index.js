@@ -3,6 +3,8 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const wikiData = require('./wiki-data.json');
 
+const MAX_VISIBLE_RESULTS = 35
+
 const app = express();
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({
@@ -87,25 +89,37 @@ app.post('/', (req, res) => {
   // }
 
   // Convert results to array and sort by date descending.
-  const orderedResult = []
+  let orderedResult = []
+  let moreThanMaxVisibleResults = false
   for (let id in result) {
     orderedResult.push(result[id])
   }
   orderedResult.sort((itemA, itemB) => itemB.last_modified - itemA.last_modified)
+  const totalResults = orderedResult.length
+
+  if (totalResults > MAX_VISIBLE_RESULTS) {
+    moreThanMaxVisibleResults = true
+    orderedResult = orderedResult.slice(0, MAX_VISIBLE_RESULTS)
+  }
 
   // prepare text ouput of response
-  for (let i = 0; i < orderedResult.length; i++) {
+  for (let i = orderedResult.length - 1; i >= 0; i--) {
     const item = orderedResult[i]
     const date = new Date(item.last_modified)
     const formattedDate = new Intl.DateTimeFormat('en-US', {
       month: 'short',
       year: 'numeric'
     }).format(date)
-    resultText += `--------------------------------------------- ${i} of ${orderedResult.length}\n\n`;
+    resultText += `--------------------------------------------- ${i+1} of ${totalResults}\n\n`;
     resultText += _highlightQuery(query, _formatHeading(item.title, item.heading)) + '\n';
     resultText += `${item.heading_url}\n`;
     resultText += `_${item.last_author.substring(0, item.last_author.indexOf('<')-1)}_ in ${formattedDate}\n\n`;
     resultText += `>${_highlightQuery(query, item.content)}\n\n`;
+  }
+
+  if (moreThanMaxVisibleResults) {
+    resultText += `=============================\n\n`
+    resultText += `_Only showing the ${MAX_VISIBLE_RESULTS} most recent commits that match your query..._`
   }
 
   // handle the no_text error
@@ -113,7 +127,7 @@ app.post('/', (req, res) => {
     resultText = `Sorry, *no results* were found for the query \`${req.body.text}\`.\n\n_Note: As of now, multi-word strings will only return results if the query words occur in the wiki in the same order they were entered._`
   }
 
-  // Return the data
+  // Return the data in a form that slack can render
   let data = {
     response_type: 'ephemeral', // Use 'in_channel' if you want it to be public to the channel
     text: resultText,
